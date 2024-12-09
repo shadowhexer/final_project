@@ -36,7 +36,7 @@ ALLOWED_HOSTS = ['127.0.0.1', ]
 
 INSTALLED_APPS = [
     'admin',
-    'rest_framework',
+    'adrf',
     'corsheaders',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -55,6 +55,8 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'corsheaders.middleware.CorsMiddleware',
+    'admin.middleware.EncryptData.Encrypt',
+    'admin.middleware.DecryptData.Decrypt',
 ]
 
 ROOT_URLCONF = 'admin_settings.urls'
@@ -89,6 +91,9 @@ DATABASES = {
         "PASSWORD": env('DB_PASS'),
         "HOST": env('DB_HOST'),
         "PORT": env('DB_PORT'),
+        "OPTIONS": {
+            'options': '-c search_path=' + env('DB_SCHEMA')
+        }
     }
 }
 

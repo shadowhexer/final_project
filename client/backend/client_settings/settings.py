@@ -54,7 +54,13 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'client.middleware.EncryptData.Encrypt',
+    'client.middleware.DecryptData.Decrypt',
     'corsheaders.middleware.CorsMiddleware',
+]
+
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:5173',  # VueJS frontend
 ]
 
 ROOT_URLCONF = 'client_settings.urls'
