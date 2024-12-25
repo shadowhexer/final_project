@@ -16,10 +16,14 @@ def main():
             "forget to activate a virtual environment?"
         ) from exc
     
-    host = os.getenv('DJANGO_HOST', '127.0.0.1')  # Default to 0.0.0.0 if not set
-    port = os.getenv('DJANGO_PORT', '7000')  # Default to 8000 if not set
-    execute_from_command_line(['manage.py', 'runserver', f'{host}:{port}'])
-
-
+    # Check if the command is 'runserver' and set default host and port
+    if sys.argv[1] == 'runserver':
+        # Set default host and port only for runserver command
+        host = os.getenv('DJANGO_HOST', '127.0.0.1')
+        port = os.getenv('DJANGO_PORT', '7000')
+        execute_from_command_line(['manage.py', 'runserver', f'{host}:{port}'])
+    else:
+        # Use the provided command line arguments for other commands
+        execute_from_command_line(sys.argv)
 if __name__ == '__main__':
     main()

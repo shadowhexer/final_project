@@ -70,7 +70,7 @@ function forms() {
     </v-form>
 
     <v-card color="surface-variant">
-      <v-card-text v-if="outputGrade" v-for="(message) in outputGrade.message.length" :key="message" class="d-flex flex-column">
+      <v-card-text v-if="outputGrade" class="d-flex flex-column">
         <span class="text-subtitle-1">
           From: {{ outputGrade.author }}
         </span>
