@@ -15,7 +15,10 @@ def main():
             "available on your PYTHONPATH environment variable? Did you "
             "forget to activate a virtual environment?"
         ) from exc
-    execute_from_command_line(sys.argv)
+    
+    host = os.getenv('DJANGO_HOST', '127.0.0.1')  # Default to 0.0.0.0 if not set
+    port = os.getenv('DJANGO_PORT', '7000')  # Default to 8000 if not set
+    execute_from_command_line(['manage.py', 'runserver', f'{host}:{port}'])
 
 
 if __name__ == '__main__':
