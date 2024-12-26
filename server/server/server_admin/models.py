@@ -51,7 +51,7 @@ class Message(models.Model):
     timeStamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        managed = False # Set to False to prevent Django from creating a table for this model
+        managed = True # Set to False to prevent Django from creating a table for this model
         db_table = 'message'
     
     def __str__(self):
@@ -79,7 +79,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     objects = CustomUserManager()
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'user'
     
     def __str__(self):
