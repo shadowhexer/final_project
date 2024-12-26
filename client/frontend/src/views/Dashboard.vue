@@ -1,57 +1,120 @@
 <template>
-  <div class="min-h-screen bg-gray-100">
+  <v-container class="min-h-screen bg-gray-100">
     <!-- Navbar -->
-    <div class="bg-white shadow-md py-4 px-8 flex justify-between items-center">
-      <!-- Left Side - Title -->
-      <div class="text-2xl font-bold text-gray-700">Dashboard</div>
-      
+    <v-row class="navbar">
+      <!-- Left Side - Title (Dashboard) -->
+      <v-col cols="auto">
+        <div class="navbar-title">Dashboard</div>
+      </v-col>
+
       <!-- Right Side - Buttons -->
-      <div class="flex space-x-4">
-        <!-- About Button -->
-        <button class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition duration-300">About</button>
-        
-        <!-- Messages Button -->
-        <button class="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition duration-300">Messages</button>
-        
-        <!-- Profile Dropdown Button -->
-        <div class="relative">
-          <button class="bg-gray-700 text-white px-4 py-2 rounded-md hover:bg-gray-800 transition duration-300">
-            Profile
-          </button>
-          <div class="absolute right-0 w-48 mt-2 bg-white shadow-lg rounded-md hidden group-hover:block">
-            <ul class="py-2">
-              <li class="px-4 py-2 hover:bg-gray-100 cursor-pointer">View Profile</li>
-              <li class="px-4 py-2 hover:bg-gray-100 cursor-pointer">Edit Profile</li>
-              <li class="px-4 py-2 hover:bg-gray-100 cursor-pointer">Logout</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </div>
+      <v-col cols="auto" class="navbar-buttons">
+        <v-btn class="navbar-btn" @click="navigateToMessages">Messages</v-btn>
+        <v-btn class="navbar-btn" color="error" @click="logout">
+          Logout
+        </v-btn>
+      </v-col>
+    </v-row>
 
     <!-- Dashboard Section -->
-    <div class="px-8 py-10">
-      <h1 class="text-3xl font-bold text-gray-700">Welcome, User!</h1>
-      <p class="text-lg text-gray-500 mt-4">You have successfully logged in. Explore your dashboard.</p>
-    </div>
-  </div>
+    <v-row class="dashboard-section">
+      <v-col>
+        <h1 class="welcome-title">Welcome, {{ user }}!</h1>
+        <p class="welcome-description">You have successfully logged in. Explore your dashboard.</p>
+      </v-col>
+    </v-row>
+  </v-container>
 </template>
 
-<script lang="ts">
-import { defineComponent } from 'vue';
+<script setup lang="ts">
+import { ref } from 'vue';
+import { useRouter } from 'vue-router';
+import UserData from '../components/Scripts/UserData';
 
-export default defineComponent({
-  name: 'Dashboard',
-});
+const userData = UserData.userDataString;
+const user = ref('')
+
+const menuVisible = ref(false);
+const router = useRouter();
+
+const logout = () => {
+  sessionStorage.removeItem('userData')
+  // Implement logout functionality (e.g., clear session data)
+  window.location.href = '/login'; // Example redirect to login
+};
+
+const navigateToMessages = () => {
+  window.location.href = '/message'; // Navigate to Messages page
+};
+
+if (userData) {
+  const data = JSON.parse(userData);
+  user.value = data.username;
+}
 </script>
 
 <style scoped>
-/* Dropdown Hover */
-button:hover + .absolute {
-  display: block;
+/* Basic Styles for Navbar */
+.navbar {
+  background-color: #ffffff;
+  padding: 16px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-.group:hover .hidden {
-  display: block;
+.navbar-title {
+  font-size: 24px;
+  font-weight: bold;
+  color: #4a4a4a;
+}
+
+.navbar-buttons {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.navbar-btn {
+  margin-right: 16px;
+  background-color: #1e40af;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 4px;
+  transition: background-color 0.3s ease;
+}
+
+.navbar-btn:hover {
+  background-color: #2563eb;
+}
+
+.profile-btn {
+  background-color: #6b7280;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 4px;
+  transition: background-color 0.3s ease;
+}
+
+.profile-btn:hover {
+  background-color: #4b5563;
+}
+
+/* Styles for Dashboard Section */
+.dashboard-section {
+  padding: 40px 32px;
+}
+
+.welcome-title {
+  font-size: 32px;
+  font-weight: bold;
+  color: #4a4a4a;
+}
+
+.welcome-description {
+  font-size: 18px;
+  color: #6b7280;
+  margin-top: 16px;
 }
 </style>

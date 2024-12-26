@@ -172,10 +172,10 @@ def login(request):
         if auth_user is not None:
             return JsonResponse({
                 'status': 'success',
-                # 'user_id': auth_user.id,
-                # 'email': auth_user.email,
-                # 'username': auth_user.username,
-                # 'public_key': auth_user.public_key,
+                'user_id': auth_user.id,
+                'email': auth_user.email,
+                'username': auth_user.username,
+                'public_key': auth_user.public_key,
             }, status=200)
         else:
             return JsonResponse({'error': 'Invalid credentials'}, status=401)

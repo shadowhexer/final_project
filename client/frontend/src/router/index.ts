@@ -14,6 +14,10 @@ const router = createRouter({
     },
     {
       path: '/',
+      redirect: '/dashboard'
+    },
+    {
+      path: '/dashboard',
       name: 'dashboard',
       component: Dashboard,
       meta: { title: 'Dashboard' },

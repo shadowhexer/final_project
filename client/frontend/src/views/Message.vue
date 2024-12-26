@@ -42,36 +42,28 @@ const fetch = async () => {
 </script>
 
 <template>
-  <v-app>
-    <v-form class="d-flex flex-row" @submit.prevent="submit">
-      <v-text-field
-        v-model="formPush.message"
-        label="Input something..."
-        :counter="20"
-        maxLength="20"
-        variant="outlined"
-        class="mr-4"
-      />
-      <v-btn type="submit" height="55" class="rounded-0">
-        Submit
-      </v-btn>
-    </v-form>
+  <v-responsive>
+    <v-app hidden >
+      <v-card width="500" height="100%">
 
-    <v-card class="mt-5">
-      <v-card-text v-if="outputGrade.message">
-        <div>
-          <strong>From:</strong> {{ outputGrade.author }}
-        </div>
-        <div>
-          <strong>Message:</strong> {{ outputGrade.message }}
-        </div>
-      </v-card-text>
-    </v-card>
-  </v-app>
+
+        
+        <v-form class="d-flex flex-row" @submit.prevent="submit">
+          <v-text-field v-model="formPush.message" label="Input something..." :counter="20" maxLength="20"
+            variant="outlined" class="mr-4" />
+          <v-btn type="submit" height="55" class="rounded-0">
+            Submit
+          </v-btn>
+        </v-form>
+
+        
+          
+      </v-card>
+
+    </v-app>
+  </v-responsive>
+
 </template>
 
 <style scoped>
-.v-form {
-  margin-bottom: 1rem;
-}
 </style>

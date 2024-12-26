@@ -69,9 +69,17 @@ const handleLogin = async () => {
   try {
       const response = await axios.post('http://127.0.0.1:7000/login/', loginForm, { withCredentials: true })
       if (response.data.status === 'success') {
-        sessionStorage.setItem('isLoggedIn', 'true')
+        // Store user data as JSON string
+        const userData = {
+          isLoggedIn: true,
+          userId: response.data.user_id,
+          email: response.data.email,
+          username: response.data.username,
+          publicKey: response.data.public_key
+        }
+        sessionStorage.setItem('userData', JSON.stringify(userData))
         // Redirect to home page after successful login
-        window.open('/dashboard')
+        window.location.href = '/dashboard'
       }
 
   } catch (error) {
