@@ -31,6 +31,8 @@ router.beforeEach((to, from, next) => {
   
     if (!isLoggedIn && to.name !== 'login') {
       next({ name: 'login' });
+    } else if(isLoggedIn && to.name === 'login') {
+      next({ name: 'dashboard' });
     } else {
       next();
     }
