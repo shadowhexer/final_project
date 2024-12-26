@@ -55,21 +55,21 @@ def registration(request):
             return JsonResponse({'error': 'Invalid data'}, status=400)
 
 
-# @api_view(['POST'])
-# def login(request):
-#     email = request.data.get('email')
-#     password = request.data.get('password')
+@api_view(['POST'])
+def login(request):
+    email = request.data.get('email')
+    password = request.data.get('password')
 
-#     stored_email = 'amba@tu.blaw'
-#     stored_password = 'omayghat_oshet'
+    stored_email = 'amba@tu.blaw'
+    stored_password = 'omayghat_oshet'
 
-#     if email and password:
-#         if email == stored_email and password == stored_password:
-#             return JsonResponse({'message': 'Login Successfully'}, status=201)
-#         else: 
-#             return JsonResponse({'error', 'Invalid credentiaks'}, status=400)
-#     else: 
-#         return JsonResponse({'error': 'Invalid data'}, status=400)
+    if email and password:
+        if email == stored_email and password == stored_password:
+            return JsonResponse({'message': 'Login Successfully'}, status=201)
+        else: 
+            return JsonResponse({'error', 'Invalid credentiaks'}, status=400)
+    else: 
+        return JsonResponse({'error': 'Invalid data'}, status=400)
     
 
 @api_view(['POST'])
