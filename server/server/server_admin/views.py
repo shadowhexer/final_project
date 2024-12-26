@@ -1,6 +1,7 @@
 import base64, json
 from django.db.models import Q
-import requests
+from django.contrib.auth import authenticate
+import requests, re
 from server_admin.middleware.DecryptData import Decrypt
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
@@ -9,7 +10,6 @@ from django.http import HttpResponse, JsonResponse
 from adrf.decorators import api_view
 from .models import Message, CustomUser
 from asgiref.sync import sync_to_async
-
 
 @api_view(['POST'])
 async def register(request):
@@ -69,12 +69,13 @@ async def get(request):
             # Extract expected fields
             encrypted_data = data.get('encrypted_data')
             author = await sync_to_async (CustomUser.objects.get)(id=data.get('author'))
+            receiver_id = await sync_to_async (CustomUser.objects.get)(id=data.get('receiver'))
             key = data.get('key')
             iv = data.get('iv')
 
-            if encrypted_data and author and key and iv:
+            if encrypted_data and author and receiver_id and key and iv:
                 # Create a new Message instance with the decrypted data
-                message = Message(message=encrypted_data, author_id=author, key=key, iv=iv)
+                message = Message(message=encrypted_data, author_id=author, receiver_id=receiver_id, key=key, iv=iv)
                 
                 # Save the Message instance
                 if hasattr(message, 'asave'):  # Check if async save is available
@@ -96,35 +97,51 @@ async def get(request):
 async def send(request):
     if request.method == 'POST':
         try:
-            # Fetch the message objects asynchronously
-            messages = await sync_to_async(list)(Message.objects.select_related('author_id').all())
+            data = json.loads(request.body)
+            receiver_id = data.get('receiver_id')
+            sender_id = data.get('author_id')
+
+            # Verify IDs exist
+            if not all([receiver_id, sender_id]):
+                return JsonResponse({'error': 'Missing IDs'}, status=400)
+
+            # Query messages with error handling
+            try:
+                messages = await sync_to_async(list)(
+                    Message.objects.select_related(
+                        'author_id', 
+                        'receiver_id'
+                    ).filter(
+                        Q(author_id_id=sender_id, receiver_id_id=receiver_id) |
+                        Q(author_id_id=receiver_id, receiver_id_id=sender_id)
+                    ).order_by('timeStamp')
+                )
+            except Message.DoesNotExist:
+                return JsonResponse({'error': 'No messages found'}, status=404)
 
             messages_list = []
-            
             for message in messages:
-                # Add author details (if needed)
-                author_details = {
-                    'id': message.author_id.id,
-                    'username': message.author_id.username  # Fetch username using select_related
-                }
-                
-                receiver_payload = {
-                    'author': author_details,  # Include full author details
+                messages_list.append({
+                    'author': {
+                        'id': message.author_id.id,
+                        'username': message.author_id.username
+                    },
+                    'receiver': {
+                        'id': message.receiver_id.id,
+                        'username': message.receiver_id.username
+                    },
                     'data': message.message,
                     'iv': message.iv,
                     'key': message.key,
-                    'timeSent': message.timeStamp,
-                }
-                messages_list.append(receiver_payload)
-            
-            # Return the response directly as JSON
+                    'timestamp': message.timeStamp
+                })
+
             return JsonResponse({'messages': messages_list}, status=200)
 
         except json.JSONDecodeError:
-            return JsonResponse({'error': 'Invalid JSON in request body'}, status=400)
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
         except Exception as e:
-            # General exception handling for unexpected errors
-            return JsonResponse({'error': f'An unexpected error occurred: {repr(e)}'}, status=500)
+            return JsonResponse({'error': str(e)}, status=500)
     
 
 @api_view(['POST'])
@@ -136,10 +153,11 @@ async def user(request):
         try:
                 
             # Fetch the message object asynchronously
-            user_object = await sync_to_async(CustomUser.objects.values('username', 'email', 'public_key').get)(username=data.get('username'))
+            user_object = await sync_to_async(CustomUser.objects.values('id', 'username', 'email', 'public_key').get)(username=data.get('username'))
 
             # Prepare the payload for the response
             receiver_payload = {
+                'id': user_object['id'],
                 'username': user_object['username'],
                 'email': user_object['email'],
                 'public_key': user_object['public_key'],
@@ -152,3 +170,35 @@ async def user(request):
         except Exception as e:
             # Catch any unexpected errors
             return JsonResponse({'error': f'Unexpected error: {str(e)}'}, status=500)
+
+
+@api_view(['POST'])
+def login(request):
+    email = request.data.get('email')
+    password = request.data.get('password')
+
+    if not email or not password:
+        return JsonResponse({'error': 'Email and password are required'}, status=400)
+    
+    try:
+        # Find user by email
+        user = CustomUser.objects.get(email=email)
+        
+        # Authenticate credentials
+        auth_user = authenticate(username=user.username, password=password)
+        
+        if auth_user is not None:
+            return JsonResponse({
+                'status': 'success',
+                'user_id': auth_user.id,
+                'email': auth_user.email,
+                'username': auth_user.username,
+                'public_key': auth_user.public_key,
+            }, status=200)
+        else:
+            return JsonResponse({'error': 'Invalid credentials'}, status=401)
+            
+    except CustomUser.DoesNotExist:
+        return JsonResponse({'error': 'User not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

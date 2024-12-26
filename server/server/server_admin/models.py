@@ -45,17 +45,18 @@ class Message(models.Model):
     id = models.AutoField(primary_key=True)
     message = models.TextField()
     # Convert to integer field with foreign key on final version
-    author_id = models.ForeignKey('server_admin.CustomUser', to_field='id', on_delete=models.CASCADE, related_name='messages', db_column='author_id') 
+    author_id = models.ForeignKey('server_admin.CustomUser', to_field='id', on_delete=models.CASCADE, related_name='messages', db_column='author_id')
+    receiver_id = models.ForeignKey('server_admin.CustomUser', to_field='id', on_delete=models.CASCADE, related_name='received_messages', db_column='receiver_id')
     key = models.TextField()
     iv = models.TextField()
     timeStamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        managed = True # Set to False to prevent Django from creating a table for this model
+        managed = False # Set to False to prevent Django from creating a table for this model
         db_table = 'message'
     
     def __str__(self):
-        return self.name
+        return self.message
 
 
 # Custom user model
@@ -79,8 +80,8 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     objects = CustomUserManager()
 
     class Meta:
-        managed = True
+        managed = False
         db_table = 'user'
     
     def __str__(self):
-        return self.name
+        return self.username
