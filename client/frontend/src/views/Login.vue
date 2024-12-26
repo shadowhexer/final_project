@@ -3,8 +3,8 @@
     <!-- Sign Up Form -->
     <div class="form-container sign-up-container">
       <form action="#" @submit.prevent="handleRegister">
-        <h1>Create Account</h1>
-        <span>or use your email for registration</span>
+        <h1 class="text-black">Create Account</h1>
+        <span class="text-black">or use your email for registration</span>
         <input type="text" placeholder="Name" v-model="createForm.username" />
         <input type="email" placeholder="Email" v-model="createForm.email" />
         <input type="password" placeholder="Password" v-model="createForm.password" />
@@ -15,11 +15,11 @@
     <!-- Sign In Form -->
     <div class="form-container sign-in-container">
       <form action="#" @submit.prevent="handleLogin">
-        <h1>Sign in</h1>
-        <span>or use your account</span>
+        <h1 class="text-black">Sign in</h1>
+        <span class="text-black">or use your account</span>
         <input type="email" placeholder="Email" v-model="loginForm.email" />
         <input type="password" placeholder="Password" v-model="loginForm.password" />
-        <a href="#">Forgot your password?</a>
+        <a href="#" @click="alertLog('Contact us or your data will be ours.')">Forgot your password?</a>
         <button>Sign In</button>
       </form>
     </div>
@@ -80,6 +80,9 @@ const handleLogin = async () => {
         sessionStorage.setItem('userData', JSON.stringify(userData))
         // Redirect to home page after successful login
         window.location.href = '/dashboard'
+      } 
+      if (response.status === 404) {
+        alertLog('Invalid name or password');
       }
 
   } catch (error) {
@@ -97,6 +100,10 @@ const handleRegister = async () => {
   } catch (error) {
     console.log(error);
   }
+}
+
+const alertLog = (text: string) => {
+    alert(text);
 }
 </script>
 
