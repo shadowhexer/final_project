@@ -67,6 +67,7 @@ def send_message(request):
 
         data = json.loads(request.body)
         author = data.get('author')
+        receiver_id = data.get('receiver')
 
         # Explicitly call the middleware
         encrypt = Encrypt(None)  # Assuming None is acceptable as the argument
@@ -94,6 +95,7 @@ def send_message(request):
                 'key': base64.b64encode(encrypted_session_key).decode('utf-8'),
                 'iv': base64.b64encode(iv).decode('utf-8'),
                 'author': author,
+                'receiver': receiver_id,
                 'encrypted_data': base64.b64encode(encrypted_data).decode('utf-8'),
             }
 
@@ -121,21 +123,24 @@ def send_message(request):
 
 
 
-def process(request, item, username):
+def process(request, item):
     try:
         
         
         # Extract author details
         author = item.get('author', {})
+        receiver = item.get('receiver', {})
         author_id = author.get('id')
         author_username = author.get('username')
+        receiver_id = receiver.get('id')
+        receiver_username = receiver.get('username')
 
         # Extract message details
-        time_sent = item.get('timeSent')
+        time_sent = item.get('timestamp')
 
         # Load the Decrypt middleware
         decrypt = Decrypt(None)
-        private_key = KeyManager.get_private_key(username)
+        private_key = KeyManager.get_private_key(receiver_username)
 
         request.private_key = private_key
         # Attach data to request for middleware processing
@@ -149,12 +154,17 @@ def process(request, item, username):
         # Call your middleware here, e.g., decrypt.process_request(request)
         # Assuming your middleware processes `request` and attaches decrypted data
         decrypted_message = getattr(request, 'data_response', None)
+        print('Message: ', decrypted_message)
 
         # Return the transformed message
         return {
             'author': {
                 'id': author_id,
                 'username': author_username,
+            },
+            'receiver': {
+                'id': receiver_id,
+                'username': receiver_username,
             },
             'message': decrypted_message,
             'timeSent': time_sent,
@@ -164,10 +174,6 @@ def process(request, item, username):
         return {'error': f'Error processing message: {repr(e)}'}
 
 
-
-
-
-
 @api_view(['POST'])
 def receive_message(request):
         
@@ -175,24 +181,28 @@ def receive_message(request):
         try:
             # Parse the incoming JSON request body
             data = json.loads(request.body)
-            username = data.get('username')
+
+            payload ={
+                'receiver_id': data.get('receiver_id'),
+                'author_id': data.get('author_id'),
+            }
+
+            print(payload)
             
             # Prepare the payload for sending to the admin API
             admin_api_url = 'http://127.0.0.1:7000/send/'
             headers = {'Content-Type': 'application/json'}
 
             # Send the data to the admin API asynchronously
-            response = requests.post(admin_api_url, headers=headers)
+            response = requests.post(admin_api_url, json=payload, headers=headers)
             response.raise_for_status()
 
             data = response.json()
             messages = []
 
-            
-
             # Loop through each message and process it
             for item in data.get('messages', []):
-                processed_message = process(request, item, username)
+                processed_message = process(request, item)
                 messages.append(processed_message)
 
             return JsonResponse({'messages': messages}, status=200)
@@ -204,23 +214,17 @@ def receive_message(request):
         except Exception as e:
             return JsonResponse({'error': f'Unexpected error: {repr(e)}'}, status=500)
 
-
-
-
-
-
-
-
  
-@api_view(['GET'])
+@api_view(['POST'])
 def get_user(request):
 
-    if request.method == 'GET':
-        username = request.GET.get('username')
-
+    if request.method == 'POST':
         try:
+            data = json.loads(request.body)
+
             payload = {
-                'username': username,
+                'username': data.get('username')
+,
             }
 
             # Prepare the payload for sending to the admin API

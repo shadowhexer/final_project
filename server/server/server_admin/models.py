@@ -45,7 +45,8 @@ class Message(models.Model):
     id = models.AutoField(primary_key=True)
     message = models.TextField()
     # Convert to integer field with foreign key on final version
-    author_id = models.ForeignKey('server_admin.CustomUser', to_field='id', on_delete=models.CASCADE, related_name='messages', db_column='author_id') 
+    author_id = models.ForeignKey('server_admin.CustomUser', to_field='id', on_delete=models.CASCADE, related_name='messages', db_column='author_id')
+    receiver_id = models.ForeignKey('server_admin.CustomUser', to_field='id', on_delete=models.CASCADE, related_name='received_messages', db_column='receiver_id')
     key = models.TextField()
     iv = models.TextField()
     timeStamp = models.DateTimeField(auto_now_add=True)
