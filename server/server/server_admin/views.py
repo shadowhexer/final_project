@@ -1,5 +1,6 @@
 import base64, json
 from django.db.models import Q
+from django.contrib.auth import authenticate
 import requests
 from server_admin.middleware.DecryptData import Decrypt
 from Crypto.PublicKey import RSA
@@ -9,7 +10,6 @@ from django.http import HttpResponse, JsonResponse
 from adrf.decorators import api_view
 from .models import Message, CustomUser
 from asgiref.sync import sync_to_async
-
 
 @api_view(['POST'])
 async def register(request):
@@ -152,3 +152,34 @@ async def user(request):
         except Exception as e:
             # Catch any unexpected errors
             return JsonResponse({'error': f'Unexpected error: {str(e)}'}, status=500)
+
+
+@api_view(['POST'])
+def login(request):
+    email = request.data.get('email')
+    password = request.data.get('password')
+
+    if not email or not password:
+        return JsonResponse({'error': 'Email and password are required'}, status=400)
+    
+    try:
+        # Find user by email
+        user = CustomUser.objects.get(email=email)
+        
+        # Authenticate credentials
+        auth_user = authenticate(username=user.username, password=password)
+        
+        if auth_user is not None:
+            return JsonResponse({
+                'message': 'Login successful',
+                'user_id': auth_user.id,
+                'email': auth_user.email,
+                'username': auth_user.username
+            }, status=200)
+        else:
+            return JsonResponse({'error': 'Invalid credentials'}, status=401)
+            
+    except CustomUser.DoesNotExist:
+        return JsonResponse({'error': 'User not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
