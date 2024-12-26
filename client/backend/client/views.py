@@ -41,7 +41,7 @@ def registration(request):
 
                 # Check API responses
                 if admin_response.status_code == 201:
-                    return JsonResponse({'status': 'Success'}, status=200)
+                    return JsonResponse({'status': 'success'}, status=200)
 
                 else:
                     return JsonResponse({

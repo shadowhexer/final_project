@@ -59,8 +59,27 @@ MIDDLEWARE = [
     'client.middleware.DecryptData.Decrypt',
 ]
 
+# CORS Settings
+CORS_ALLOW_ALL_ORIGINS = False  # Set to True only in development
 CORS_ALLOWED_ORIGINS = [
-    'http://localhost:5173',  # VueJS frontend
+    "http://localhost:5173",  # Vue.js default dev server
+    "http://127.0.0.1:7000",
+]
+
+# Optional: Allow credentials (cookies, authorization headers)
+CORS_ALLOW_CREDENTIALS = True
+
+# Optional: Allow specific headers
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'origin',
+    'dnt',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
 ]
 
 ROOT_URLCONF = 'client_settings.urls'
