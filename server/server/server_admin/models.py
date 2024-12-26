@@ -9,31 +9,74 @@
 # Create a custom user model
 # https://learndjango.com/tutorials/django-custom-user-model
 from django.db import models
-from django.contrib.auth.models import AbstractUser
-from django.contrib.auth import get_user_model
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 
+# Create a custom user model based on user type
+class CustomUserManager(BaseUserManager):
+    """Custom manager for CustomUser."""
+
+    # Create a new user with the given email and password.
+    def create_user(self, username, email, password=None, **extra_fields):
+        if not email:
+            raise ValueError("The Email field must be set.")
+        email = self.normalize_email(email)
+        user = self.model(username=username, email=email, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    # Create a new superuser with the given email and password.
+    def create_superuser(self, username, email, password=None, **extra_fields):
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+
+        # Validation for consistency
+        if extra_fields.get('is_staff') is not True:
+            raise ValueError("Superuser must have is_staff=True.")
+        if extra_fields.get('is_superuser') is not True:
+            raise ValueError("Superuser must have is_superuser=True.")
+        
+        return self.create_user(username, email, password, **extra_fields)
+
+
+# Message model
 class Message(models.Model):
+
     id = models.AutoField(primary_key=True)
     message = models.TextField()
-    author = models.ForeignKey('server_admin.CustomUser', to_field='id', on_delete=models.CASCADE, related_name='messages') # Convert to integer field with foreign key on final version
+    # Convert to integer field with foreign key on final version
+    author_id = models.ForeignKey('server_admin.CustomUser', to_field='id', on_delete=models.CASCADE, related_name='messages', db_column='author_id') 
     key = models.TextField()
     iv = models.TextField()
     timeStamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        managed = False
+        managed = False # Set to False to prevent Django from creating a table for this model
         db_table = 'message'
     
     def __str__(self):
         return self.name
 
-class CustomUser(AbstractUser):
+
+# Custom user model
+class CustomUser(AbstractBaseUser, PermissionsMixin):
 
     id = models.AutoField(primary_key=True)
     username = models.TextField(unique=True)
     email = models.TextField()
     password = models.TextField()
     public_key = models.TextField()
+    last_login = models.DateTimeField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    is_staff = models.BooleanField(default=False)
+    is_superuser = models.BooleanField(default=False)
+
+    USERNAME_FIELD = 'username'
+    EMAIL_FIELD = 'email'
+    REQUIRED_FIELDS = ['email']
+
+    # Custom user manager
+    objects = CustomUserManager()
 
     class Meta:
         managed = False

@@ -1,9 +1,10 @@
 from django.urls import path
 from . import views
 
-app_name = "admin"  
+app_name = "server"  
 urlpatterns = [
     path('register/', views.register, name='register'),
     path('send/', views.send, name='send'),
-    path('receive/', views.get, name='get')
+    path('receive/', views.get, name='get'),
+    path('user/', views.user, name='user'),
     ]

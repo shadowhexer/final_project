@@ -10,15 +10,15 @@ class Encrypt:
     def process_request(self, request):
         # Extract data from request attributes
         data = getattr(request, 'encrypt_data', None)
-        author = getattr(request, 'encrypt_author', None)
+        # author = getattr(request, 'encrypt_author', None)
         public_key = getattr(request, 'public_key', None)
-
-        if data and author and public_key:
+    
+        if data and public_key:
             try:
                 # Ensure data is in bytes
                 data = data.encode('utf-8') if isinstance(data, str) else data
-                author = author.encode('utf-8') if isinstance(author, str) else author
-
+                public_key = public_key.encode('utf-8') if isinstance(public_key, str) else public_key
+                
                 # Generate a symmetric AES session key
                 session_key = os.urandom(16)
 
@@ -30,18 +30,18 @@ class Encrypt:
                 aes_cipher = AES.new(session_key, AES.MODE_CBC)
                 iv = aes_cipher.iv
                 encrypted_data = aes_cipher.encrypt(pad(data, AES.block_size))
-                encrypted_author = aes_cipher.encrypt(pad(author, AES.block_size))
+                # encrypted_author = aes_cipher.encrypt(pad(author, AES.block_size))
 
                 # Set encrypted values in request
                 request.encrypted_data = encrypted_data
-                request.encrypted_author = encrypted_author
+                # request.encrypted_author = encrypted_author
                 request.encrypted_session_key = encrypted_session_key
                 request.iv = iv
             except Exception as e:
                 # Handle encryption errors
-                request.error = f"Encryption failed: {str(e)}"
+                request.error = f"Encryption failed: {repr(e)}"
         else:
-            request.error = "Missing data for encryption"
+            request.error = f"Missing data for encryption"
 
     def __call__(self, request):
         # Process the request
