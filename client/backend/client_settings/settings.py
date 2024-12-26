@@ -49,12 +49,18 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
+    'client.middleware.EncryptData.Encrypt',
+    'client.middleware.DecryptData.Decrypt',
+]
+
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:5173',  # VueJS frontend
 ]
 
 ROOT_URLCONF = 'client_settings.urls'
