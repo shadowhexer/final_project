@@ -48,6 +48,7 @@ class Decrypt:
                     encrypted_session_key.encode('utf-8') if isinstance(encrypted_session_key, str) else encrypted_session_key
                 )
                 iv = iv.encode('utf-8') if isinstance(iv, str) else iv
+                print("SUccess")
             except Exception as e:
                 request.error = f"Error converting data to bytes: {repr(e)}"
                 return
@@ -57,14 +58,16 @@ class Decrypt:
                 decoded_data = base64.b64decode(encrypted_data)
                 decoded_session_key = base64.b64decode(encrypted_session_key)
                 decoded_iv = base64.b64decode(iv)
+                print("Decoded successfully")
             except Exception as e:
-                request.error = f"Error decoding Base64 values: {repr(e)}"
-                return
+                print("Base64 Decoding Error:", e)
+                
 
             # Step 1: Decrypt the session key using RSA private key
             try:
                 rsa_cipher_decrypt = PKCS1_OAEP.new(RSA.import_key(private_key))
                 decrypted_session_key = rsa_cipher_decrypt.decrypt(decoded_session_key)
+                print("Done")
             except Exception as e:
                 request.error = f"Error decrypting session key with RSA: {repr(e)}"
                 return
@@ -73,6 +76,7 @@ class Decrypt:
             try:
                 aes_cipher_decrypt = AES.new(decrypted_session_key, AES.MODE_CBC, decoded_iv)
                 decrypted_data = unpad(aes_cipher_decrypt.decrypt(decoded_data), AES.block_size)
+                print("Dones")
             except ValueError as ve:
                 request.error = f"Padding error during AES decryption: {repr(ve)}"
                 return

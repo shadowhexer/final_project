@@ -152,8 +152,9 @@ def process(request, item, username):
 
         # Load the Decrypt middleware
         decrypt = Decrypt(None)
+        private_key = KeyManager.get_private_key(username)
 
-        request.private_key = KeyManager.get_private_key(username)
+        request.private_key = private_key
         # Attach data to request for middleware processing
         request.encrypted_data = item.get('data').encode()
         request.session_key = item.get('key').encode()
@@ -164,7 +165,7 @@ def process(request, item, username):
         # Middleware function (example: decryption middleware)
         # Call your middleware here, e.g., decrypt.process_request(request)
         # Assuming your middleware processes `request` and attaches decrypted data
-        decrypted_message = getattr(request, 'error', None)
+        decrypted_message = getattr(request, 'data_response', None)
 
         # Return the transformed message
         return {
