@@ -47,8 +47,6 @@ class Message(models.Model):
     # Convert to integer field with foreign key on final version
     author_id = models.ForeignKey('server_admin.CustomUser', to_field='id', on_delete=models.CASCADE, related_name='messages', db_column='author_id')
     receiver_id = models.ForeignKey('server_admin.CustomUser', to_field='id', on_delete=models.CASCADE, related_name='received_messages', db_column='receiver_id')
-    key = models.TextField()
-    iv = models.TextField()
     timeStamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -66,7 +64,6 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     username = models.TextField(unique=True)
     email = models.TextField()
     password = models.TextField()
-    public_key = models.TextField()
     last_login = models.DateTimeField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)

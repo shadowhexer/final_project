@@ -8,48 +8,48 @@ class Decrypt:
         self.get_response = get_response
 
     def process_request(self, request):
+
         # Extract required data from request
-        private_key = getattr(request, 'private_key', None)  # Assuming this contains the private RSA key (PEM format)
-        encrypted_data = getattr(request, 'encrypted_data', None)  # Base64 encoded ciphertext
-        encrypted_author = getattr(request, 'encrypted_author', None)  # Base64 encoded ciphertext
-        encrypted_session_key = getattr(request, 'session_key', None)  # Base64 encoded RSA-encrypted session key
-        iv = getattr(request, 'iv', None)  # Base64 encoded initialization vector
+        private_key = getattr(request, 'private_key', None)
+        encrypted_data_list = getattr(request, 'encrypted_data', None)
 
-        # Check for required attributes on the request
-        if private_key and encrypted_data and encrypted_author and encrypted_session_key and iv:
+        # Check for missing data and log issues
+        if not private_key:
+            request.error = "Missing private key"
+            return
+        
+        if not encrypted_data_list:
+            request.error = "Missing encrypted data"
+            return
+
+        decrypted_values = []
+        for encrypted_data in encrypted_data_list:
+            value = encrypted_data.get("value")
+            iv = encrypted_data.get("iv")
+            encrypted_session_key = encrypted_data.get("session_key")
+
+            # Check for missing values
+            if not all([value, iv, encrypted_session_key]):
+                request.error = "Missing value, iv or session_key"
+                return
+            
             try:
-
-                encrypted_data = encrypted_data.encode('utf-8') if isinstance(encrypted_data, str) else encrypted_data
-                encrypted_author = encrypted_author.encode('utf-8') if isinstance(encrypted_author, str) else encrypted_author
-                encrypted_session_key = encrypted_session_key.encode('utf-8') if isinstance(encrypted_session_key, str) else encrypted_session_key
-                iv = iv.encode('utf-8') if isinstance(iv, str) else iv
-
-                # Decode Base64 encoded values (no UTF-8 decoding needed here)
-                decoded_data = base64.b64decode(encrypted_data)
-                decoded_author = base64.b64decode(encrypted_author)
-                decoded_session_key = base64.b64decode(encrypted_session_key)
-                decoded_iv = base64.b64decode(iv)
-
-                # Step 1: Decrypt the session key using RSA private key
+                # Decrypt the session key with RSA
                 rsa_cipher_decrypt = PKCS1_OAEP.new(RSA.import_key(private_key))
-                decrypted_session_key = rsa_cipher_decrypt.decrypt(decoded_session_key)
+                decrypted_session_key = rsa_cipher_decrypt.decrypt(base64.b64decode(encrypted_session_key))
+                aes_cipher_decrypt = AES.new(decrypted_session_key, AES.MODE_CBC, base64.b64decode(iv))
 
-                # Step 2: Decrypt the data and author using the AES session key
-                aes_cipher_decrypt = AES.new(decrypted_session_key, AES.MODE_CBC, decoded_iv)
-                decrypted_data = unpad(aes_cipher_decrypt.decrypt(decoded_data), AES.block_size)
-                decrypted_author = unpad(aes_cipher_decrypt.decrypt(decoded_author), AES.block_size)
+                # Decrypt the value
+                decrypted_value = base64.b64decode(value)
+                decrypted_data = unpad(aes_cipher_decrypt.decrypt(decrypted_value), AES.block_size)
+                decrypted_values.append(decrypted_data.decode('utf-8'))
 
-                # Set decrypted values on the request object
-                request.data_response = decrypted_data.decode()
-                request.author_response = decrypted_author.decode()
-
-            except ValueError as ve:
-                request.error = f"Padding error: {str(ve)}"
             except Exception as e:
-                request.error = f"Decryption failed: {str(e)}"
-        else:
-            request.error = "Missing data for decryption"
-
+                request.error = f"Decryption error: {repr(e)}"
+                return
+            
+        # Store the decrypted values in the request
+        request.data_response = decrypted_values
 
     def __call__(self, request):
         # Process the request

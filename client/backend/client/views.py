@@ -7,6 +7,26 @@ from rest_framework.decorators import api_view
 from client.middleware import Encrypt, Decrypt
 
 # Step 1: Generate RSA public/private keys
+@api_view(['GET'])
+def get_public_key(request):
+    # Generate or retrieve the public key
+    public_key = KeyManager.generate_keys('client')
+    
+    # Ensure the public key is returned as a string (if it’s a byte object)
+    public_key_str = public_key.decode('utf-8') if isinstance(public_key, bytes) else str(public_key)
+    
+    return JsonResponse({'pub_key': public_key_str}, status=200)
+
+
+def fetch_public_key():
+    admin_api_url = 'http://127.0.0.1:7000/pub_key'
+    try:
+        admin_response = requests.get(admin_api_url, headers={'Content-Type': 'application/json'})
+        admin_response.raise_for_status()  # Ensures status is 200
+        data = admin_response.json().get('pub_key')
+        return data
+    except requests.RequestException as e:
+        raise Exception(f"Failed to fetch public key: {str(e)}")
 
 
 # Create your views here.
@@ -17,27 +37,35 @@ def registration(request):
         # Ensure private key is generated
         data = json.loads(request.body)
 
-        username = data.get('username')
-        public_key = KeyManager.generate_keys(username)
+        pub_key = fetch_public_key()
 
-        email = data.get('email')
-        password = data.get('password')
+        # Initialize encryption logic
+        encrypt = Encrypt(None)  # Assuming Encrypt is correctly defined
 
-        if username and email and password and public_key:
+        values_to_encrypt = [
+            str(data.get('username')),
+            str(data.get('email')),
+            str(data.get('password')),
+        ]
+
+        # Attach data to the request for encryption
+        request.encrypt_data = values_to_encrypt
+        request.public_key = pub_key
+
+        # Process the request with encryption logic
+        encrypt.process_request(request)
+
+        # Retrieve encrypted data from the request
+        result = getattr(request, 'encrypted_data', None)
+
+        if result:
             try:
-                # Create payloads for APIs
-                server = {
-                    'username': base64.b64encode(username.encode()).decode('utf-8'),
-                    'email': base64.b64encode(email.encode()).decode('utf-8'),
-                    'password': base64.b64encode(password.encode()).decode('utf-8'),
-                    'public_key': public_key.decode('utf-8'),
-                }
+                server_payload = { 'encrypted_data': result }
 
-                # Send data to APIs
+                # Send encrypted data to server
                 admin_api_url = 'http://127.0.0.1:7000/register/'
                 headers = {'Content-Type': 'application/json'}
-
-                admin_response = requests.post(admin_api_url, json=server, headers=headers)
+                admin_response = requests.post(admin_api_url, json=server_payload, headers=headers)
 
                 # Check API responses
                 if admin_response.status_code == 201:
@@ -49,129 +77,102 @@ def registration(request):
                     }, status=500)
                 
             except requests.RequestException as e: 
-                return JsonResponse({'Request failed': repr(e), 'Payload': server}, status=500)
+                return JsonResponse({'Request failed': repr(e), 'Payload': server_payload}, status=500)
 
         else:
-            return JsonResponse({'error': 'Invalid data'}, status=400)
+            return JsonResponse({'error': result}, status=400)
     
 
+
+# Send message to server
 @api_view(['POST'])
 def send_message(request):
-    import uuid, logging
-    
-    # Setup logging
-    # logging.basicConfig(level=logging.DEBUG)
-
-    # Retrieve data from the request
     if request.method == 'POST':
+        data = json.loads(request.body)  # From the front end
 
-        data = json.loads(request.body)
-        author = data.get('author')
-        receiver_id = data.get('receiver')
+        pub_key = fetch_public_key()
 
-        # Explicitly call the middleware
-        encrypt = Encrypt(None)  # Assuming None is acceptable as the argument
+        # Initialize encryption logic
+        encrypt = Encrypt(None)  # Assuming Encrypt is correctly defined
+
+        values_to_encrypt = [
+            str(data.get('message')),
+            str(data.get('author_id')),
+            str(data.get('receiver_id')),
+        ]
 
         # Attach data to the request for encryption
-        request.encrypt_data = data.get('message')  # Use bytes
-        request.public_key = data.get('public_key').encode()  # Ensure `public_key` is defined correctly
+        request.encrypt_data = values_to_encrypt
+        request.public_key = pub_key
 
-        # Uncomment this if middleware in the server side is setup or DB column is modified
-        # request.encrypt_author = data.get('author')  
-
+        # Process the request with encryption logic
         encrypt.process_request(request)
 
+        # Retrieve encrypted data from the request
+        result = getattr(request, 'encrypted_data', None)
 
-    # Retrieve encrypted data from the request
-    encrypted_data = getattr(request, 'encrypted_data', None)
-    # encrypted_author = getattr(request, 'encrypted_author', None)
-    encrypted_session_key = getattr(request, 'encrypted_session_key', None)
-    iv = getattr(request, 'iv', None)
+        if result:
+            try:
+                server_payload = { 'encrypted_data': result }
 
-    if encrypted_data and author and encrypted_session_key and iv:
-        try:
-            # Create payloads for APIs
-            server = {
-                'key': base64.b64encode(encrypted_session_key).decode('utf-8'),
-                'iv': base64.b64encode(iv).decode('utf-8'),
-                'author': author,
-                'receiver': receiver_id,
-                'encrypted_data': base64.b64encode(encrypted_data).decode('utf-8'),
-            }
+                # Send encrypted data to server
+                admin_api_url = 'http://127.0.0.1:7000/send/'
+                headers = {'Content-Type': 'application/json'}
+                admin_response = requests.post(admin_api_url, json=server_payload, headers=headers)
 
-            # Send data to APIs
-            admin_api_url = 'http://127.0.0.1:7000/receive/'
-            headers = {'Content-Type': 'application/json'}
+                # Check API response
+                if admin_response.status_code == 200:
+                    return JsonResponse({'status': 'Success'}, status=200)
+                else:
+                    return JsonResponse({'error': admin_response.json()}, status=500)
+            except requests.RequestException as e:
+                return JsonResponse({'error': f'Failed to send encrypted data: {repr(e)}'}, status=500)
 
-            admin_response = requests.post(admin_api_url, json=server, headers=headers)
+        # Handle encryption failure
+        error = getattr(request, 'error', 'Unknown encryption error occurred.')
+        return JsonResponse({'error': error}, status=500)
+    else:
+        return JsonResponse({'error': 'Failed to retrieve public key'}, status=500)
 
-            # Check API responses
-            if admin_response.status_code == 200:
-                return JsonResponse({'status': 'Success'}, status=200)
-
-            else:
-                return JsonResponse({
-                    'Failed': admin_response.json(),
-                }, status=500)
-            
-        except requests.RequestException as e:
-            return JsonResponse({'error': f'API Request failed: {repr(e)}'}, status=500)
-
-    return JsonResponse({'error': 'Failed to process encryption'}, status=500)
-
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 
 
 
 def process(request, item):
     try:
-        
-        
-        # Extract author details
-        author = item.get('author', {})
-        receiver = item.get('receiver', {})
-        author_id = author.get('id')
-        author_username = author.get('username')
-        receiver_id = receiver.get('id')
-        receiver_username = receiver.get('username')
+        # Load the Decrypt middleware and private key
+        private_key = KeyManager.get_private_key('client')
+        if not private_key:
+            return {'error': 'Private key not found'}
 
-        # Extract message details
-        time_sent = item.get('timestamp')
-
-        # Load the Decrypt middleware
         decrypt = Decrypt(None)
-        private_key = KeyManager.get_private_key(receiver_username)
 
+        # Attach data to the request object for middleware processing
         request.private_key = private_key
-        # Attach data to request for middleware processing
-        request.encrypted_data = item.get('data').encode()
-        request.session_key = item.get('key').encode()
-        request.iv = item.get('iv').encode()
-        
+        request.encrypted_data = item.get('messages')
+
+        # Process the request using the middleware
         decrypt.process_request(request)
 
-        # Middleware function (example: decryption middleware)
-        # Call your middleware here, e.g., decrypt.process_request(request)
-        # Assuming your middleware processes `request` and attaches decrypted data
-        decrypted_message = getattr(request, 'data_response', None)
-        print('Message: ', decrypted_message)
+        # Retrieve decrypted data from the request
+        result = getattr(request, 'data_response', None)
+        if not result:
+            return {'error': 'Decryption failed or no data returned'}
 
         # Return the transformed message
-        return {
-            'author': {
-                'id': author_id,
-                'username': author_username,
-            },
-            'receiver': {
-                'id': receiver_id,
-                'username': receiver_username,
-            },
-            'message': decrypted_message,
-            'timeSent': time_sent,
-        }
+        return result
+    except KeyError as e:
+        # Handle missing keys in the item dictionary
+        return {'error': f'Missing key: {repr(e)}'}
+    except AttributeError as e:
+        # Handle issues with attributes (e.g., result being None)
+        return {'error': f'Attribute error: {repr(e)}'}
     except Exception as e:
-        # Handle errors for individual message processing
-        return {'error': f'Error processing message: {repr(e)}'}
+        # Catch-all for other errors
+        return {'error9': f'Error processing message: {repr(e)}'}
+
+
 
 
 @api_view(['POST'])
@@ -182,37 +183,77 @@ def receive_message(request):
             # Parse the incoming JSON request body
             data = json.loads(request.body)
 
-            payload ={
-                'receiver_id': data.get('receiver_id'),
-                'author_id': data.get('author_id'),
-            }
+            # Get the public key from the server
+            try:
+                pub_key = fetch_public_key()
 
-            print(payload)
-            
-            # Prepare the payload for sending to the admin API
-            admin_api_url = 'http://127.0.0.1:7000/send/'
-            headers = {'Content-Type': 'application/json'}
+                # Initialize encryption logic
+                encrypt = Encrypt(None)  # Assuming Encrypt is correctly defined
 
-            # Send the data to the admin API asynchronously
-            response = requests.post(admin_api_url, json=payload, headers=headers)
-            response.raise_for_status()
+                values_to_encrypt = [
+                    str(data.get('author_id')),
+                    str(data.get('receiver_id')),
+                ]
 
-            data = response.json()
-            messages = []
+                # Attach data to the request for encryption
+                request.encrypt_data = values_to_encrypt
+                request.public_key = pub_key
 
-            # Loop through each message and process it
-            for item in data.get('messages', []):
-                processed_message = process(request, item)
-                messages.append(processed_message)
+                # Process the request with encryption logic
+                encrypt.process_request(request)
 
-            return JsonResponse({'messages': messages}, status=200)
+                # Retrieve encrypted data from the request
+                result = getattr(request, 'encrypted_data', None)
+
+                if not result:
+                    return JsonResponse({'error1': 'Encryption failed, no encrypted data found'}, status=500)
+
+                else:
+                    try:
+                        server_payload = { 'encrypted_data': result }
+
+                        # print(server_payload)
+
+                        # Send encrypted data to server
+                        admin_api_url = 'http://127.0.0.1:7000/return/'
+                        headers = {'Content-Type': 'application/json'}
+                        admin_response = requests.post(admin_api_url, json=server_payload, headers=headers)
+
+                        # Check API response
+                        if admin_response.status_code == 200:
+                            admin_response.raise_for_status()
+
+                            data = admin_response.json()
+                            
+                            messages = []
+                            messages_data = data.get('messages', [])
+                            
+                            if not isinstance(messages_data, list):
+                                return JsonResponse({'error': 'Invalid data format for messages'}, status=500)
+
+                            # Loop through each message and process it
+                            for item in messages_data:
+                                processed_message = process(request, item)
+
+                                if 'error' in processed_message:
+                                    return JsonResponse({'error': processed_message['error']}, status=500)
+                                messages.append(processed_message)
+
+                            return JsonResponse({'messages': messages}, status=200)
+                        else:
+                            return JsonResponse({'error2': admin_response.json()}, status=500)
+                    except requests.RequestException as e:
+                        return JsonResponse({'error3': f'Failed to send encrypted data: {repr(e)}'}, status=500)
+                    
+            except Exception as e:
+                return JsonResponse({'error4': str(e)}, status=500)
 
         except json.JSONDecodeError:
-            return JsonResponse({'error': 'Invalid JSON in request body'}, status=400)
+            return JsonResponse({'error5': 'Invalid JSON in request body'}, status=400)
         except httpx.RequestError as e:
-            return JsonResponse({'error': f'Failed to send data to admin API: {str(e)}'}, status=500)
+            return JsonResponse({'error6': f'Failed to send data to admin API: {str(e)}'}, status=500)
         except Exception as e:
-            return JsonResponse({'error': f'Unexpected error: {repr(e)}'}, status=500)
+            return JsonResponse({'error7': f'Unexpected error: {repr(e)}'}, status=500)
 
  
 @api_view(['POST'])

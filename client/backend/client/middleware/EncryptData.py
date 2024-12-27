@@ -1,47 +1,54 @@
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import AES, PKCS1_OAEP
 from Crypto.Util.Padding import pad, unpad
-import os
+import os, base64
 
 class Encrypt:
     def __init__(self, get_response=None):
         self.get_response = get_response
 
     def process_request(self, request):
-        # Extract data from request attributes
-        data = getattr(request, 'encrypt_data', None)
-        # author = getattr(request, 'encrypt_author', None)
         public_key = getattr(request, 'public_key', None)
-    
-        if data and public_key:
+
+        if hasattr(request, 'encrypt_data') and public_key:
             try:
-                # Ensure data is in bytes
-                data = data.encode('utf-8') if isinstance(data, str) else data
+                # Ensure public key is in bytes
                 public_key = public_key.encode('utf-8') if isinstance(public_key, str) else public_key
-                
-                # Generate a symmetric AES session key
-                session_key = os.urandom(16)
 
-                # Encrypt the session key using RSA public key
-                rsa_cipher = PKCS1_OAEP.new(RSA.import_key(public_key))
-                encrypted_session_key = rsa_cipher.encrypt(session_key)
+                # Prepare a list for encrypted data with associated IV and session key
+                encrypted_data_list = []
 
-                # Encrypt the data and author using AES
-                aes_cipher = AES.new(session_key, AES.MODE_CBC)
-                iv = aes_cipher.iv
-                encrypted_data = aes_cipher.encrypt(pad(data, AES.block_size))
-                # encrypted_author = aes_cipher.encrypt(pad(author, AES.block_size))
+                for value in request.encrypt_data:
+                    # Generate a unique session key and IV for each value
+                    session_key = os.urandom(16)
+                    aes_cipher = AES.new(session_key, AES.MODE_CBC)
+                    iv = aes_cipher.iv
 
-                # Set encrypted values in request
-                request.encrypted_data = encrypted_data
-                # request.encrypted_author = encrypted_author
-                request.encrypted_session_key = encrypted_session_key
-                request.iv = iv
+                    # Encrypt the session key using RSA public key
+                    rsa_cipher = PKCS1_OAEP.new(RSA.import_key(public_key))
+                    encrypted_session_key = rsa_cipher.encrypt(session_key)
+
+                    # Ensure the value is in bytes
+                    value = value.encode('utf-8') if isinstance(value, str) else value
+
+                    # Encrypt the data using AES
+                    encrypted_value = aes_cipher.encrypt(pad(value, AES.block_size))
+
+                    # Append the encrypted data and associated parameters
+                    encrypted_data_list.append({
+                        "value": base64.b64encode(encrypted_value).decode('utf-8'),
+                        "iv": base64.b64encode(iv).decode('utf-8'),
+                        "session_key": base64.b64encode(encrypted_session_key).decode('utf-8')
+                    })
+
+                # Store the structured data in the request
+                request.encrypted_data = encrypted_data_list
+
             except Exception as e:
-                # Handle encryption errors
                 request.error = f"Encryption failed: {repr(e)}"
         else:
-            request.error = f"Missing data for encryption"
+            request.error = "Missing data for encryption"
+
 
     def __call__(self, request):
         # Process the request
