@@ -18,8 +18,14 @@ class Encrypt:
                 # Prepare a list for encrypted data with associated IV and session key
                 encrypted_data_list = []
 
-                for value in request.encrypt_data:
+                # Get the data to encrypt (normalize to a list)
+                encrypt_data = getattr(request, 'encrypt_data', [])
+                if not isinstance(encrypt_data, list):
+                    encrypt_data = [encrypt_data]  # Wrap non-list values in a list
+
+                for value in encrypt_data:
                     # Generate a unique session key and IV for each value
+                    
                     session_key = os.urandom(16)
                     aes_cipher = AES.new(session_key, AES.MODE_CBC)
                     iv = aes_cipher.iv

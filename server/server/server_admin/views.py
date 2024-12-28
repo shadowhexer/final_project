@@ -1,5 +1,5 @@
 import base64, json
-from django.db.models import Q
+from django.db.models import OuterRef, Subquery, Q
 from django.contrib.auth import authenticate
 import requests
 from server_admin.middleware.DecryptData import Decrypt
@@ -149,6 +149,34 @@ async def get_message(request):
                 return JsonResponse({'error': repr(e)}, status=500)
 
 
+async def get_messages(sender_id, receiver_id):
+    # Subquery to fetch the author's username
+    author_username_subquery = CustomUser.objects.filter(
+        id=OuterRef('author_id')
+    ).values('username')[:1]
+
+    # Subquery to fetch the receiver's username
+    receiver_username_subquery = CustomUser.objects.filter(
+        id=OuterRef('receiver_id')
+    ).values('username')[:1]
+
+    # Main query
+    messages = await sync_to_async(
+        lambda: list(
+            Message.objects.select_related('author_id', 'receiver_id').filter(
+                Q(author_id=sender_id, receiver_id=receiver_id) |
+                Q(author_id=receiver_id, receiver_id=sender_id)
+            ).order_by('timeStamp').annotate(
+                author_username=Subquery(author_username_subquery),
+                receiver_username=Subquery(receiver_username_subquery)
+            ).values(
+                'message', 'timeStamp',
+                'author_username', 'receiver_username'
+            ).iterator()
+        )
+    )()
+    return messages
+
 
 @api_view(['POST'])
 async def return_message(request):
@@ -178,22 +206,12 @@ async def return_message(request):
             
             result = getattr(request, 'data_response', None)
 
-            sender_id = result[0]
-            receiver_id = result[1]
+            messages = await get_messages(result[0], result[1])
 
+            # print(messages)
 
-            messages = await sync_to_async(list)(
-                Message.objects.select_related(
-                    'author_id', 
-                    'receiver_id'
-                ).filter(
-                    Q(author_id_id=sender_id, receiver_id_id=receiver_id) |
-                    Q(author_id_id=receiver_id, receiver_id_id=sender_id)
-                ).order_by('timeStamp')
-            )
             if not messages:
                 return JsonResponse({'error': 'No messages found'}, status=404)
-
 
             try: # Send the messages as a JSON response
 
@@ -211,53 +229,54 @@ async def return_message(request):
                     # Initialize encryption logic
                     encrypt = Encrypt(None)  # Assuming Encrypt is correctly defined
 
-                    for message in messages:
-                        try:
-                            # Prepare data for encryption
-                            values_to_encrypt = [
-                                str(getattr(message.author_id, 'id', None)),
-                                str(getattr(message.author_id, 'username', None)),
-                                str(getattr(message.receiver_id, 'id', None)),
-                                str(getattr(message.receiver_id, 'username', None)),
-                                str(message.message),
-                            ]
-                            if None in values_to_encrypt:
-                                raise ValueError("One or more required fields are missing for encryption.")
+                    try:
 
-                            request.encrypt_data = values_to_encrypt
-                            request.public_key = response.get('pub_key')
+                        # Initialize the list to store encrypted messages
+                        messages_list = []
 
-                            # Encrypt the data
-                            encrypt.process_request(request)
-                            result = getattr(request, 'encrypted_data', None)
-                            if not result:
-                                raise ValueError("Encryption process did not return any data.")
+                        # Loop through each message
+                        # Loop through each message
+                        for message in messages:
+                            try:
+                                # Prepare the data for encryption
+                                request.encrypt_data = message['message']
+                                request.public_key = response.get('pub_key')
 
-                            # Build the encrypted response
-                            messages_list = []
-                            for encrypted_message in result:
-                                if 'value' not in encrypted_message or 'iv' not in encrypted_message or 'session_key' not in encrypted_message:
-                                    return JsonResponse({'error': 'Invalid encryption result format.'}, status=500)
+                                # Encrypt the data
+                                encrypt.process_request(request)
+                                result = getattr(request, 'encrypted_data', [])
 
-                                messages_list.append({
-                                    'author': {
-                                        'id': message.author_id.id,
-                                        'username': message.author_id.username
-                                    },
-                                    'receiver': {
-                                        'id': message.receiver_id.id,
-                                        'username': message.receiver_id.username,
-                                    },
-                                    'data': encrypted_message,  # Include the encrypted data
-                                    'timestamp': message.timeStamp
-                                })
+                                if not result:
+                                    raise ValueError("Encryption process did not return any data.")
 
-                            
+                                # Validate the encryption result
+                                for encrypted_message in result:
+                                    if 'value' not in encrypted_message or 'iv' not in encrypted_message or 'session_key' not in encrypted_message:
+                                        return JsonResponse({'error': 'Invalid encryption result format.'}, status=500)
 
-                        except Exception as e:
-                            return JsonResponse({'error': f'Encryption failed for message {message.id}: {repr(e)}'}, status=500)
+                                    # Append the encrypted message to the list
+                                    messages_list.append({
+                                        'author_username': message['author_username'],
+                                        'receiver_username': message['receiver_username'],
+                                        'data': encrypted_message,  # Include the encrypted data
+                                        'timestamp': message['timeStamp']
+                                    })
 
-                    return JsonResponse({'messages': result}, status=200)
+                            except Exception as e:
+                                # Handle encryption errors for individual messages
+                                return JsonResponse({'error': f'Encryption failed for message {message["message"]}: {repr(e)}'}, status=500)
+
+                        # Return the list of encrypted messages
+                        # print('Items: ', messages_list)
+                        return JsonResponse({'messages': messages_list}, status=200)
+
+                    except Exception as e:
+                        # Handle unexpected errors
+                        return JsonResponse({'error': f'An unexpected error occurred: {repr(e)}'}, status=500)
+
+                    except Exception as e:
+                        # Handle unexpected errors
+                        return JsonResponse({'error': f'An unexpected error occurred: {repr(e)}'}, status=500)
 
                 else:
                     return JsonResponse({'error5': 'Failed to fetch public key'}, status=500)
@@ -268,7 +287,7 @@ async def return_message(request):
         except json.JSONDecodeError:
             return JsonResponse({'error': 'Invalid JSON'}, status=400)
         except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
+            return JsonResponse({'errorc': str(e)}, status=500)
     
 
 @api_view(['POST'])

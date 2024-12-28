@@ -141,6 +141,7 @@ def send_message(request):
 
 def process(request, item):
     try:
+        print('Items:', item)
         # Load the Decrypt middleware and private key
         private_key = KeyManager.get_private_key('client')
         if not private_key:
@@ -150,7 +151,7 @@ def process(request, item):
 
         # Attach data to the request object for middleware processing
         request.private_key = private_key
-        request.encrypted_data = item.get('messages')
+        request.encrypted_data = item['data']
 
         # Process the request using the middleware
         decrypt.process_request(request)
@@ -224,21 +225,28 @@ def receive_message(request):
                             admin_response.raise_for_status()
 
                             data = admin_response.json()
-                            
-                            messages = []
                             messages_data = data.get('messages', [])
-                            
+
                             if not isinstance(messages_data, list):
                                 return JsonResponse({'error': 'Invalid data format for messages'}, status=500)
 
                             # Loop through each message and process it
+                            messages = []
                             for item in messages_data:
+                                # print("M: ", item)
                                 processed_message = process(request, item)
 
                                 if 'error' in processed_message:
                                     return JsonResponse({'error': processed_message['error']}, status=500)
-                                messages.append(processed_message)
+                                
+                                messages.append({
+                                        'author_username': item['author_username'],
+                                        'receiver_username': item['receiver_username'],
+                                        'data': processed_message,  # Include the encrypted data
+                                        'timestamp': item['timestamp']
+                                    })
 
+                            # Return all processed messages
                             return JsonResponse({'messages': messages}, status=200)
                         else:
                             return JsonResponse({'error2': admin_response.json()}, status=500)

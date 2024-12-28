@@ -11,7 +11,11 @@ class Decrypt:
 
         # Extract required data from request
         private_key = getattr(request, 'private_key', None)
-        encrypted_data_list = getattr(request, 'encrypted_data', None)
+        
+        # Get the data to encrypt (normalize to a list)
+        encrypted_data_list = getattr(request, 'encrypted_data', [])
+        if not isinstance(encrypted_data_list, list):
+            encrypted_data_list = [encrypted_data_list]  # Wrap non-list values in a list
 
         # Check for missing data and log issues
         if not private_key:
@@ -24,9 +28,9 @@ class Decrypt:
 
         decrypted_values = []
         for encrypted_data in encrypted_data_list:
-            value = encrypted_data.get("value")
-            iv = encrypted_data.get("iv")
-            encrypted_session_key = encrypted_data.get("session_key")
+            value = encrypted_data['value']
+            iv = encrypted_data['iv']
+            encrypted_session_key = encrypted_data['session_key']
 
             # Check for missing values
             if not all([value, iv, encrypted_session_key]):
