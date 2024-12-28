@@ -14,6 +14,7 @@ class Decrypt:
         
         # Get the data to encrypt (normalize to a list)
         encrypted_data_list = getattr(request, 'encrypted_data', [])
+        
         if not isinstance(encrypted_data_list, list):
             encrypted_data_list = [encrypted_data_list]  # Wrap non-list values in a list
 

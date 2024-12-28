@@ -170,7 +170,7 @@ async def get_messages(sender_id, receiver_id):
                 author_username=Subquery(author_username_subquery),
                 receiver_username=Subquery(receiver_username_subquery)
             ).values(
-                'message', 'timeStamp',
+                'message', 'timeStamp', 'author_id', 'receiver_id',
                 'author_username', 'receiver_username'
             ).iterator()
         )
@@ -256,6 +256,8 @@ async def return_message(request):
 
                                     # Append the encrypted message to the list
                                     messages_list.append({
+                                        'author_id': message['author_id'],
+                                        'receiver_id': message['receiver_id'],
                                         'author_username': message['author_username'],
                                         'receiver_username': message['receiver_username'],
                                         'data': encrypted_message,  # Include the encrypted data
@@ -299,14 +301,13 @@ async def user(request):
         try:
                 
             # Fetch the message object asynchronously
-            user_object = await sync_to_async(CustomUser.objects.values('id', 'username', 'email', 'public_key').get)(username=data.get('username'))
+            user_object = await sync_to_async(CustomUser.objects.values('id', 'username', 'email').get)(username=data.get('username'))
 
             # Prepare the payload for the response
             receiver_payload = {
                 'id': user_object['id'],
                 'username': user_object['username'],
                 'email': user_object['email'],
-                'public_key': user_object['public_key'],
             }
             # Return the response directly as JSON
             return JsonResponse(receiver_payload, status=200)
@@ -339,12 +340,11 @@ def login(request):
                 'user_id': auth_user.id,
                 'email': auth_user.email,
                 'username': auth_user.username,
-                'public_key': auth_user.public_key,
             }, status=200)
         else:
             return JsonResponse({'error': 'Invalid credentials'}, status=401)
             
     except CustomUser.DoesNotExist:
-        return JsonResponse({'error': 'User not found'}, status=404)
+        return JsonResponse({'error': 'Not Found'}, status=404)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)

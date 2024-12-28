@@ -2,7 +2,8 @@
   <div class="message-container">
     <div class="header">
       <div class="search-bar">
-        <input v-model="searchQuery.username" type="text" :placeholder="receiver !== '' ? receiver : 'Search username....'" class="search-input"
+        <input v-model="searchQuery.username" type="text"
+          :placeholder="receiver !== '' ? receiver : 'Search username....'" class="search-input"
           @keyup.enter="search" />
       </div>
       <div class="logout-button">
@@ -12,13 +13,13 @@
       </div>
     </div>
 
-    <div class="messages">
+    <div class="d-flex flex-column messages">
       <div v-for="(msg, index) in messages" :key="index" class="message-box" :class="{
-        'sent': msg.author.username === formGet.username,
-        'received': msg.author.username !== formGet.username
+        'sent': msg.author_username === formGet.username,
+        'received': msg.receiver_username !== formGet.username
       }">
         <p class="message-content text-black">{{ msg.message }}</p>
-        <p class="message-author text-black">{{ msg.author.username }}</p>
+        <p class="message-author text-black">{{ msg.author_username }}</p>
       </div>
     </div>
 
@@ -41,15 +42,11 @@ import API from '@/services/api';
 import UserData from '@/components/Scripts/UserData';
 
 type Message = {
-  author: {
-    id: number,
-    username: string,
-  },
-  receiver: {
-    id: number,
-    username: string,
-  },
-  message: string,
+  author_id: any,
+  receiver_id: any,
+  author_username: string,
+  receiver_username: string,
+  message: string[0],
   timeSent: Date,
 }
 let intervalId: ReturnType<typeof setInterval>;
@@ -68,7 +65,6 @@ const formPush = reactive({
   message: '',
   author_id: '',
   receiver_id: '',
-  public_key: '',
 });
 
 const formGet = reactive({
@@ -81,9 +77,8 @@ const messages = ref<Message[]>([])
 
 const search = async () => {
   const response = await API.post('user/', searchQuery)
-  if (response) {
+  if (response.status === 200) {
     formGet.receiver_id = formPush.receiver_id = response.data.users.id;
-    formPush.public_key = response.data.users.public_key
     receiver.value = response.data.users.username
     searchQuery.username = ''
 
@@ -99,7 +94,11 @@ const retrieve = async () => {
 
     const response = await API.post('message/', formGet)
     if (response.status === 200) {
-      messages.value = response.data.messages
+      messages.value = response.data.messages.map(msg => ({
+        ...msg, // Copy all properties from the original message
+        message: msg.message[0],
+        timeSent: new Date(msg.timeSent),
+      }));
     }
   }
 }
@@ -110,11 +109,11 @@ const submit = async () => {
     return;
   }
   const response = await API.post('send/', formPush)
-  if(response) {
+  if (response) {
     formPush.message = '';
     scrollToBottom();
   }
-  
+
 };
 
 const navigateToLogin = () => {
@@ -129,13 +128,13 @@ const scrollToBottom = () => {
   });
 };
 
-onMounted(() =>{
+onMounted(() => {
   scrollToBottom();
 })
 
 onMounted(() => {
   retrieve(); // Initial fetch
-  intervalId = setInterval(retrieve, 10000); // Fetch every 5 seconds
+  intervalId = setInterval(retrieve, 20000); // Fetch every 5 seconds
 });
 
 // Cleanup on unmount
@@ -213,28 +212,22 @@ body {
 }
 
 .messages {
-  display: flex;
-  flex-direction: column;
   min-height: 50vh;
   background-color: #DCF8C6;
 }
 
 .message-box {
-  max-width: 70%;
+  max-width: 40%;
   padding: 10px 15px;
   margin-bottom: 10px;
   border-radius: 15px;
   position: relative;
+  background-color: white;
 }
 
 .sent {
   align-self: flex-end;
-  background-color: white;
-}
-
-.received {
-  align-self: flex-start;
-  background-color: white;
+  
 }
 
 .message-content {
@@ -244,7 +237,6 @@ body {
 .message-author {
   font-size: 0.8em;
   color: #888;
-  text-align: right;
 }
 
 .footer {

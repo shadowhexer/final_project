@@ -20,8 +20,10 @@
         <input type="email" placeholder="Email" v-model="loginForm.email" />
         <input type="password" placeholder="Password" v-model="loginForm.password" />
         <a href="#" @click="alertLog('Contact us or your data will be ours.')">Forgot your password?</a>
+        <span class="text-black text-caption text-red">{{ error }}</span>
         <button>Sign In</button>
       </form>
+
     </div>
 
     <!-- Overlay Panel for Transition -->
@@ -65,27 +67,40 @@ const createForm = reactive({
   password: '' as string,
 })
 
+const error = ref('');
+
 const handleLogin = async () => {
   try {
-      const response = await axios.post('http://127.0.0.1:7000/login/', loginForm, { withCredentials: true })
-      if (response.data.status === 'success') {
-        // Store user data as JSON string
-        const userData = {
-          isLoggedIn: true,
-          userId: response.data.user_id,
-          email: response.data.email,
-          username: response.data.username,
-          publicKey: response.data.public_key
-        }
-        sessionStorage.setItem('userData', JSON.stringify(userData))
-        // Redirect to home page after successful login
-        window.location.href = '/dashboard'
-      } 
-      if (response.status === 404) {
-        alertLog('Invalid name or password');
-      }
+    const response = await axios.post('http://127.0.0.1:7000/login/', loginForm, { withCredentials: true });
 
-  } catch (error) {
+    if (response.data.status === 'success') {
+      // Store user data as JSON string
+      const userData = {
+        isLoggedIn: true,
+        userId: response.data.user_id,
+        email: response.data.email,
+        username: response.data.username,
+      };
+      sessionStorage.setItem('userData', JSON.stringify(userData));
+
+      // Redirect to home page after successful login
+      window.location.href = '/dashboard';
+    }
+  } catch (error: any) {
+    if (error.response) {
+      // The request was made and the server responded with a status code
+      if (error.response.status === 404) {
+        error.value = "User not found. Please check your email and password.";
+      } else {
+        error.value = "An unexpected error occurred. Please try again.";
+      }
+    } else if (error.request) {
+      // The request was made but no response was received
+      error.value = "No response from the server. Please check your connection.";
+    } else {
+      // Something happened in setting up the request
+      error.value = "An error occurred. Please try again.";
+    }
     console.log(error);
   }
 }
@@ -103,7 +118,7 @@ const handleRegister = async () => {
 }
 
 const alertLog = (text: string) => {
-    alert(text);
+  alert(text);
 }
 </script>
 

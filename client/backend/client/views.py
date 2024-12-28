@@ -141,7 +141,6 @@ def send_message(request):
 
 def process(request, item):
     try:
-        print('Items:', item)
         # Load the Decrypt middleware and private key
         private_key = KeyManager.get_private_key('client')
         if not private_key:
@@ -240,10 +239,12 @@ def receive_message(request):
                                     return JsonResponse({'error': processed_message['error']}, status=500)
                                 
                                 messages.append({
+                                        'author_id': item['author_id'],
+                                        'receiver_id': item['receiver_id'],
                                         'author_username': item['author_username'],
                                         'receiver_username': item['receiver_username'],
-                                        'data': processed_message,  # Include the encrypted data
-                                        'timestamp': item['timestamp']
+                                        'message': processed_message,  # Include the encrypted data
+                                        'timeSent': item['timestamp']
                                     })
 
                             # Return all processed messages
@@ -272,8 +273,7 @@ def get_user(request):
             data = json.loads(request.body)
 
             payload = {
-                'username': data.get('username')
-,
+                'username': data.get('username'),
             }
 
             # Prepare the payload for sending to the admin API
